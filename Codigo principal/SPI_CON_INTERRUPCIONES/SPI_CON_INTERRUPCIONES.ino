@@ -96,8 +96,6 @@ void setup(){
 }
 
 void loop(){
-
-
 	// Serial.print("\nBUFFER (BIN): ");
 	// for(int i=0; i<5; i++){
 	//     Serial.print(buf[i], BIN);
