@@ -1,4 +1,6 @@
-#include <SPI.h>
+#include <SPI.h>	// SPI communication 
+#include <avr/io.h>	
+#include <avr/interrupt.h>
 
 // Data is divided in bytes where motors are controlled by 2 bits each. Each motor has been called with a letter (D,C,B,A) in MSB order.
 //
@@ -20,12 +22,20 @@
 #define MOTOR_C_STOP 0x30 	//set bit 4 y 5
 #define MOTOR_D_STOP 0xC0 	//set bit 6 y 7
 
-int latchPin = 10 ;        //Pin conectado a ST_CP of 74HC595 (Verde)
-int clockPin = 13;        //Pin conectado a SH_CP of 74HC595 (Amarillo)
-int dataPin = 11;          //Pin connected to DS of 74HC595  (Azul)
+//Prescaler clock for ADC in octal base
+#define ADC_CLOCK_DIV2 0x0
+#define ADC_CLOCK_DIV4 0x2
+#define ADC_CLOCK_DIV8 0x3
+#define ADC_CLOCK_DIV16 0x4
+#define ADC_CLOCK_DIV32 0x5
+#define ADC_CLOCK_DIV64 0x6
+#define ADC_CLOCK_DIV128 0x7
+
+int latchPin = 10 ;        // SS pin used to latch the output on 74HC595
 long tic = 0;
 long toc = 0;
-volatile uint8_t buf[5] = {};
+volatile uint8_t out_buffer[5] = {};
+volatile uint16_t value_ADC = 0;
 
 // Initial parameters are set in this function:
 void setup(){  
@@ -53,7 +63,7 @@ void setup(){
 			* --> In some micros it is called ADATE. When is '1' enables SFIOR register to control more functions than ADFR bit can do
 			ADIF --> ADC Interrupt Flag. Is set to '1' by hardware when conversion is done and resisters are updated
 			ADIE --> ADC Interrupt Enable
-			ADPS2:0 --> ADC Prescaler Select Bits. Division factor goes from 2 up to 128. To set prescaler 2 the bits should be '0'
+			ADPS2:0 --> ADC Prescaler Select Bits. Division factor goes from '2' up to '128'. To set prescaler '2' the three bits must be '0'
 	ADCL/ADCH REGISTERS -> ADC Data Registers
 		-------------------------------------------------------
 		|  15  |  14  |  13  |  12  |  11  |  10  |  9  |  8  | << ADCH
@@ -71,6 +81,7 @@ void setup(){
 			ADTS2:0 --> Only if ADATE exists and it value is '1', these bits determine the trigger source of ADC conversor. Free Running Mode is active when these bits are '0'
 	*/
 
+	ADCSRA |= _BV(ADC_CLOCK_DIV2);	//Prescaler selection
 
 	Serial.print("ADMUX = ");
 	Serial.print(ADMUX,BIN);
@@ -81,8 +92,8 @@ void setup(){
 	Serial.print("\n");
 
 
-	buf[0] |= MOTOR_A_RIGHT | MOTOR_B_STOP;
-	buf[2] |= MOTOR_A_RIGHT | MOTOR_C_STOP;
+	out_buffer[0] |= MOTOR_A_RIGHT | MOTOR_B_STOP;
+	out_buffer[2] |= MOTOR_A_RIGHT | MOTOR_C_STOP;
 
 	SPI.begin();	//SPI communication is initiated 
 	SPI.beginTransaction(SPISettings(F_CPU,MSBFIRST,SPI_MODE0));	//SPI parameters are set according hardware specifications 
@@ -110,10 +121,10 @@ void loop(){
 	// Serial.print("\n");
 	
 	
-	digitalWrite(latchPin, LOW) ; //latchpin low to begin data transmission
+	digitalWrite(latchPin, LOW) ;	//latchpin low to begin data transmission
 	tic = micros();
 	// Metodo 1:
-	SPI.transfer(buf, sizeof(buf));
+	SPI.transfer(out_buffer, sizeof(out_buffer));
 	// Metodo 2:
 	// for(int i=0; i<5; i++){
 	//     SPI.transfer(buf[i]);
@@ -125,7 +136,7 @@ void loop(){
 	// SPI.transfer(buf[3]);
 	// SPI.transfer(buf[4]);
 	toc = micros();
-	digitalWrite(latchPin, HIGH) ; //latchpin high to end data transmission
+	digitalWrite(latchPin, HIGH) ;	//latchpin high to end data transmission
 	
 	
 	// Serial.print("\nTiempo de ejecución:");
@@ -136,3 +147,8 @@ void loop(){
 
 }
 
+// ADC Interruption
+ISR(ADC_vect){
+	value_ADC = ADC;	//assignation of the result of ADC stored in ADCH and ADCL registers
+
+}
