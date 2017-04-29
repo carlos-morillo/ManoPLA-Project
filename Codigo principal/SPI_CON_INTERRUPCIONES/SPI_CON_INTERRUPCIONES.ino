@@ -31,7 +31,10 @@
 #define ADC_CLOCK_DIV64 0x6
 #define ADC_CLOCK_DIV128 0x7
 
-int latchPin = 10 ;        // SS pin used to latch the output on 74HC595
+int latchPin = 10 ;	// SS (SlaveSelect) pin used to latch the output on 74HC595
+int pinMux_A = 3;	// Selection pin of the demultiplexer
+int pinMux_B = 4;
+volatile int n = 0;	// Auxiliary variable 
 long tic = 0;
 long toc = 0;
 volatile uint8_t out_buffer[5] = {};
@@ -41,6 +44,8 @@ volatile uint16_t value_ADC = 0;
 void setup(){  
 	Serial.begin(9600);	//Serial port opened
 	pinMode(latchPin, OUTPUT);	//pinMode for latchPin is defined
+	pinMode(pinMux_A, OUTPUT);	//PinMode for demultiplexer outputs
+	pinMode(pinMux_B, OUTPUT);
 /* << CONFIGURATION OF ADC >>	
 	ADMUX REGISTER -> ADC Multiplexer Selection Register
 		------------------------------------------------------------
@@ -61,7 +66,7 @@ void setup(){
 			ADCS --> ADC Start Conversion. Set to '1' before starting conversion. It is cleared to '0' by hardware when finishes. It takes 13 clock ticks or 25 if it's the first conversion
 			ADFR --> ACD AutoTrigger. When is '1' Free Running Mode is activated.
 			* --> In some micros it is called ADATE. When is '1' enables SFIOR register to control more functions than ADFR bit can do
-			ADIF --> ADC Interrupt Flag. Is set to '1' by hardware when conversion is done and resisters are updated
+			ADIF --> ADC Interrupt Flag. Is set to '1' by hardware when conversion is done and registers are updated
 			ADIE --> ADC Interrupt Enable
 			ADPS2:0 --> ADC Prescaler Select Bits. Division factor goes from '2' up to '128'. To set prescaler '2' the three bits must be '0'
 	ADCL/ADCH REGISTERS -> ADC Data Registers
@@ -82,7 +87,8 @@ void setup(){
 	*/
 
 	ADCSRA |= _BV(ADC_CLOCK_DIV2);	//Prescaler selection
-
+	digitalWrite(pinMux_A, HIGH);
+	digitalWrite(pinMux_B, HIGH);
 	Serial.print("ADMUX = ");
 	Serial.print(ADMUX,BIN);
 	Serial.print("\n");
@@ -102,7 +108,6 @@ void setup(){
 	Serial.print(SPCR,BIN);
 	Serial.print("\nSPSR = ");
 	Serial.print(SPSR,BIN);
-
 
 }
 
@@ -150,5 +155,5 @@ void loop(){
 // ADC Interruption
 ISR(ADC_vect){
 	value_ADC = ADC;	//assignation of the result of ADC stored in ADCH and ADCL registers
-
+	n++;
 }
