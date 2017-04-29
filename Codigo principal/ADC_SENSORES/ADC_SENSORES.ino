@@ -5,12 +5,16 @@
 int sensor[NUM_SENSORES] = {0};
 bool S[2] = {0};
 uint8_t m = 0;
+int pinS0 = 4, pinS1 = 5;
 
 //Auxiliary variables
 long a = 0,b = 0;
 
 void setup(){
 	Serial.begin(9600);
+//  External MUX configuration for first sensor reading
+	digitalWrite(pinS0, S[0]);
+	digitalWrite(pinS1, S[1]);
 
 // ADC registers configuration
 	ADMUX |= _BV(REFS0);	// Set bit to configure reference voltage
@@ -23,7 +27,6 @@ void setup(){
 	// Free running mode activated
 	// Interruptions activated
 	// Velocity set up to 500 kHz --> Div = 32 --> F = 16M/32 = 500 kHz
-
 }
 
 void loop(){
@@ -41,6 +44,7 @@ void loop(){
 	}
 }
 
+// ADC interruption 
 ISR(ADC_vect){
 	sensor[m++] = ADCL | (ADCH << 8);
 
