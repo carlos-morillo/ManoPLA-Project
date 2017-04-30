@@ -1,4 +1,4 @@
-
+#include "Arduino.h"
 
 #define NUM_SENSORES 17
 
@@ -17,7 +17,7 @@ void setup(){
 	digitalWrite(pinS0, S[0]);
 	digitalWrite(pinS1, S[1]);
 
-// ADC registers configuration 
+// ADC registers configuration
 	ADMUX |= _BV(REFS0);	// Set bit to configure reference voltage
 
 	ADCSRA = 0;	// Both registers cleared
@@ -42,11 +42,10 @@ void loop(){
 			Serial.print("\n");
 		}
 		Serial.print("\n");
-		Serial.print("Hola mundo");
 	}
 }
 
-// ADC interruption 
+// ADC interruption
 ISR(ADC_vect){
 	sensor[m++] = ADCL | (ADCH << 8);
 
