@@ -28,9 +28,10 @@
 #define MASK_CLEAR_MUXBITS 0x0F
 
 //Variable declaration
-int sensor[NUM_SENSORES] = {0};
-bool s[2] = {0};
-uint8_t m = 0;
+volatile uint16_t sensor[NUM_SENSORES] = {0};
+volatile uint16_t aux = 0;
+volatile bool s[2] = {0};
+volatile uint8_t m = 0;
 
 //Auxiliary variables
 long a = 0,b = 0, c = 0 , d = 0;
@@ -46,13 +47,18 @@ void setup(){
 	// digitalWrite(PINS1, s[1]);
 
 // ADC registers configuration
-	ADMUX |= _BV(REFS0) ;	// Set bit to configure reference voltage
+	ADMUX |= _BV(REFS0);	// Set bit to configure reference voltage
+
+      DIDR0 |= _BV(ADC4D) | _BV(ADC3D) | _BV(ADC2D) | _BV(ADC1D) | _BV(ADC0D);
+      // Disable digital features
 
 	ADCSRA = 0;	// Both registers cleared
 	ADCSRB = 0;
 
-	ADCSRA |= _BV(ADEN) | _BV(ADATE) | _BV(ADIE);	// Enabled ADC. Free running mode activated. Interruptions activated
-	ADCSRA |= MASK_DIV128;	// Velocity set up to 500 kHz --> Div = 32 --> F = 16M/32 = 500 kHz
+	ADCSRA |= _BV(ADEN) | _BV(ADATE) | _BV(ADIE);
+      // Enabled ADC. Free running mode activated. Interruptions activated
+	ADCSRA |= MASK_DIV32;
+      // Velocity set up to 500 kHz --> Div = 32 --> F = 16M/32 = 500 kHz
 	ADCSRA |= _BV(ADSC);	// Start Conversion
 	sei();
 }
@@ -61,6 +67,7 @@ void loop(){
 	b = millis();
 	if(b - a > 1000){
 		a = millis();
+            cli();
 		for(int i=0; i<NUM_SENSORES; i++){
 			Serial.print("Sensor[");
 			Serial.print(i);
@@ -69,18 +76,20 @@ void loop(){
 			Serial.print("\n");
 		}
 		Serial.print("\n");
+            sei();
 	}
 }
 
 // ADC interruption
 ISR(ADC_vect){
-	//c = micros();
-	sensor[m++] = ADCL | (ADCH << 8);	// Value assignment
-	if(m > (NUM_SENSORES - 1)) m = 0;
+// VALUE ASSIGNMENT
+	sensor[m] = ADCL | (ADCH << 8);	// Value assignment
+      if(++m == (NUM_SENSORES)) m = 0;    // m counter update
 
+// INTERNAL MULTIPLEXER CONFIGURATION
 	ADMUX &= ~MASK_CLEAR_MUXBITS;	// ADMUX register 4 last bit are cleared
-	ADMUX |= m & (MASK_GET_BIT1 | MASK_GET_BIT0);
-	// The last two values of m are copied to ADMUX:
+	ADMUX |= m & (MASK_GET_BIT1 | MASK_GET_BIT0);	// Last two m bits are copied to ADMUX
+	// HOW DOES IT WORK?
 	// 1.	   0000 0001 --> MASK_GET_BIT0
 	//	OR 0000 0010 --> MASK_GET_BIT1
 	// 	  -----------
@@ -89,11 +98,17 @@ ISR(ADC_vect){
 	//	  -----------
 	//	   0000 00XX --> 2 last values isolated and ready to be copied
 
-	if (m ==0 || m == 4 || m == 8 || m == 12) {
+      // The last sensor has direct conection to ADC4 (no external mux)
+      if(m == 16){
+            ADMUX &= ~MASK_CLEAR_MUXBITS;	// ADMUX register 4 last bit are cleared
+            ADMUX |= _BV(MUX2) ;	// ADC4 is selected
+      }
+// EXTERNAL MULTIPLEXER CONFIGURATION
+	if (m == 0 || m == 4 || m == 8 || m == 12) {
 		PORTD = 0;	// PORTD register is cleared
 		s[0] = m & MASK_GET_BIT2;	// Bit nº2 of m is copied to S0
 		s[1] = m & MASK_GET_BIT3; 	// Bit nº3 of m is copied to S1
-		// How do the copy works? (f.e: S0 demonstration)
+		// HOW DOES IT WORK? (f.e: S0 demonstration)
 		// 1. m = XXXX XXXX --> bit 2 is the value desired for S0
 		// 2.     XXXX XXXX --> m
 		//	AND 0000 0100 --> MASK_GET_BIT2
@@ -101,10 +116,4 @@ ISR(ADC_vect){
 		//	    0000 0X00 --> S0 ('0' or '1' the only possible values)
 		PORTD |= (s[0] << PINS0) | (s[1] << PINS1);	// PORTD is updated
 	}
-
-	//d = micros();
-	//Serial.print("Tiempo --> ");
-	//Serial.println(d-c);
-	ADCSRA &= ~ _BV(ADIF);	// Flag cleared to start a new conversion
-
 }

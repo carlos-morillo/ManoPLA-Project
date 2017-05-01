@@ -1,12 +1,12 @@
-#include <SPI.h>	// SPI communication 
-#include <avr/io.h>	
+#include <SPI.h>	// SPI communication
+#include <avr/io.h>
 #include <avr/interrupt.h>
 
 // Data is divided in bytes where motors are controlled by 2 bits each. Each motor has been called with a letter (D,C,B,A) in MSB order.
 //
-// BYTE--> XX XX XX XX (each pair of bits corresponds to one motor)           
+// BYTE--> XX XX XX XX (each pair of bits corresponds to one motor)
 // MOTOR->  D  C  B  A
-// 	XX = 01 or 10 --> rotation clockwise/counter-clockwise respectively 
+// 	XX = 01 or 10 --> rotation clockwise/counter-clockwise respectively
 // 	XX = 00 or 11 --> stop
 
 #define MOTOR_A_RIGHT 0x01 	//set bit 0
@@ -34,19 +34,19 @@
 int latchPin = 10 ;	// SS (SlaveSelect) pin used to latch the output on 74HC595
 int pinMux_A = 3;	// Selection pin of the demultiplexer
 int pinMux_B = 4;
-volatile int n = 0;	// Auxiliary variable 
+volatile int n = 0;	// Auxiliary variable
 long tic = 0;
 long toc = 0;
 volatile uint8_t out_buffer[5] = {};
 volatile uint16_t value_ADC = 0;
 
 // Initial parameters are set in this function:
-void setup(){  
+void setup(){
 	Serial.begin(9600);	//Serial port opened
 	pinMode(latchPin, OUTPUT);	//pinMode for latchPin is defined
 	pinMode(pinMux_A, OUTPUT);	//PinMode for demultiplexer outputs
 	pinMode(pinMux_B, OUTPUT);
-/* << CONFIGURATION OF ADC >>	
+/* << CONFIGURATION OF ADC >>
 	ADMUX REGISTER -> ADC Multiplexer Selection Register
 		------------------------------------------------------------
 		|   7   |   6   |   5   |  4   |  3   |  2   |  1   |  0   |
@@ -101,8 +101,8 @@ void setup(){
 	out_buffer[0] |= MOTOR_A_RIGHT | MOTOR_B_STOP;
 	out_buffer[2] |= MOTOR_A_RIGHT | MOTOR_C_STOP;
 
-	SPI.begin();	//SPI communication is initiated 
-	SPI.beginTransaction(SPISettings(F_CPU,MSBFIRST,SPI_MODE0));	//SPI parameters are set according hardware specifications 
+	SPI.begin();	//SPI communication is initiated
+	SPI.beginTransaction(SPISettings(F_CPU,MSBFIRST,SPI_MODE0));	//SPI parameters are set according hardware specifications
 	SPSR |= _BV(SPI2X);
 	Serial.print("\nSPCR = ");
 	Serial.print(SPCR,BIN);
@@ -124,8 +124,8 @@ void loop(){
 	//     Serial.print(" ");
 	// }
 	// Serial.print("\n");
-	
-	
+
+
 	digitalWrite(latchPin, LOW) ;	//latchpin low to begin data transmission
 	tic = micros();
 	// Metodo 1:
@@ -142,8 +142,8 @@ void loop(){
 	// SPI.transfer(buf[4]);
 	toc = micros();
 	digitalWrite(latchPin, HIGH) ;	//latchpin high to end data transmission
-	
-	
+
+
 	// Serial.print("\nTiempo de ejecución:");
 	// Serial.print(toc - tic);
 	// Serial.print(" us\n");
